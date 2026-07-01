@@ -1,80 +1,80 @@
-# Trivia Quiz — Client/Server in C
+# Trivia Quiz — C Client/Server
 
-Progetto per il corso di **Reti di Calcolatori** (prof. Giuseppe Anastasi) — Università di Pisa, A.A. 2024/2025. Valutato con il massimo dei voti.
+Project for the **Computer Networks** course (prof. Giuseppe Anastasi) — University of Pisa, A.Y. 2024/2025. Graded with full marks.
 
-Un gioco di trivia multi-utente basato su socket TCP: un server multithread gestisce più client contemporaneamente, ciascuno dei quali può registrarsi con un nickname, scegliere un tema tra quelli disponibili e rispondere a una serie di domande, con punteggio e classifica condivisi tra tutti i partecipanti.
+A multi-user trivia game built on TCP sockets: a multithreaded server handles several clients at once, each of which can register with a nickname, pick a topic among those available, and answer a series of questions, with score and leaderboard shared across all participants.
 
-## Funzionalità principali
+## Main features
 
-- **Concorrenza con thread**: il server crea un thread POSIX per ogni client connesso e un thread dedicato al pannello di controllo, evitando l'overhead dei cambi di contesto tra processi.
-- **Alberi binari di ricerca**: utenti e classifiche sono mantenuti in BST (ordinati rispettivamente per nickname e per punteggio/nickname), per inserimento, cancellazione e stampa ordinata efficienti.
-- **Pannello di controllo del server**: un thread separato mostra a intervalli regolari (configurabili) l'elenco dei temi, i partecipanti connessi, la classifica per tema e chi ha completato ciascun tema; il server può essere terminato in modo pulito digitando `q`.
-- **Formato quiz personalizzato**: le domande sono organizzate in file di testo con un semplice formato a delimitatori (vedi sotto), parsati all'avvio del server. Aggiungere nuovi temi non richiede modifiche al codice.
-- **Protocollo applicativo minimale**: client e server si scambiano messaggi con un header di 4 byte (lunghezza in network byte order) seguito dal payload; non serve un campo "tipo messaggio" perché, in ogni fase della conversazione, entrambe le parti sanno a priori cosa aspettarsi.
-- **Gestione dei segnali**: `SIGPIPE` è gestito esplicitamente sia lato client che lato server, per evitare la terminazione brusca del processo quando l'altra estremità chiude la connessione, delegando la gestione dell'errore alle funzioni di invio.
+- **Concurrency with threads**: the server spawns a POSIX thread for each connected client and a dedicated thread for the control panel, avoiding the overhead of context switches between processes.
+- **Binary search trees**: users and leaderboards are kept in BSTs (ordered by nickname and by score/nickname respectively), for efficient ordered insertion, deletion and printing.
+- **Server control panel**: a separate thread periodically (interval configurable) displays the list of topics, connected participants, the leaderboard for each topic and who has completed each topic; the server can be shut down cleanly by typing `q`.
+- **Custom quiz format**: questions are organized in text files using a simple delimiter-based format (see below), parsed when the server starts. Adding new topics requires no code changes.
+- **Minimal application protocol**: client and server exchange messages with a 4-byte header (length in network byte order) followed by the payload; no "message type" field is needed, since at every stage of the conversation both sides already know what to expect.
+- **Signal handling**: `SIGPIPE` is explicitly handled on both the client and server side, to avoid abrupt process termination when the other end closes the connection, delegating error handling to the send functions.
 
-## Struttura del progetto
+## Project structure
 
 ```
 .
-├── server.c              # entry point del server: setup socket, accept loop, avvio thread
-├── client.c              # entry point del client: menu, interazione con l'utente
-├── include/               # header pubblici dei moduli
-│   ├── common.h           # funzioni di utilità condivise (I/O su socket, gestione errori)
-│   ├── database.h         # strutture dati e funzioni per utenti/classifiche (BST)
-│   ├── dashboard.h        # pannello di controllo del server
-│   ├── game.h             # gestione della partita di un singolo client
-│   ├── params.h           # costanti di configurazione (porta, timeout, lunghezze massime, ...)
-│   └── quiz.h             # strutture dati e parsing dei file di quiz
-├── modules/               # implementazione dei moduli lato server
+├── server.c              # server entry point: socket setup, accept loop, thread startup
+├── client.c              # client entry point: menu, user interaction
+├── include/               # public headers for each module
+│   ├── common.h           # shared utility functions (socket I/O, error handling)
+│   ├── database.h         # data structures and functions for users/leaderboards (BST)
+│   ├── dashboard.h         # server control panel
+│   ├── game.h             # handling of a single client's game session
+│   ├── params.h           # configuration constants (port, timeouts, max lengths, ...)
+│   └── quiz.h             # data structures and parsing of quiz files
+├── modules/               # server-side module implementations
 │   ├── common.c
 │   ├── database.c
 │   ├── dashboard.c
 │   ├── game.c
 │   └── quiz.c
-├── quiz/                  # contenuti dei quiz (temi e domande)
-│   ├── indice.quiz        # numero di temi e relativi nomi
-│   └── N.quiz             # domande e risposte del tema N
+├── quiz/                  # quiz content (topics and questions)
+│   ├── indice.quiz        # number of topics and their names
+│   └── N.quiz             # questions and answers for topic N
 ├── Makefile
-└── start.sh               # compila ed avvia un server e due client di test in terminali separati
+└── start.sh               # builds the project and launches a server and two test clients in separate terminals
 ```
 
-## Compilazione ed esecuzione
+## Building and running
 
-Richiede `gcc` e `make` su un sistema Linux/POSIX.
+Requires `gcc` and `make` on a Linux/POSIX system.
 
 ```bash
-make          # compila server e client
-./server      # avvia il server (porta e IP configurabili in include/params.h)
-./client 3000 # avvia un client, specificando la porta del server
+make          # build server and client
+./server      # start the server (port and IP configurable in include/params.h)
+./client 3000 # start a client, specifying the server's port
 ```
 
-In alternativa, lo script `start.sh` compila il progetto e avvia automaticamente un server e due client in finestre di terminale separate (richiede `gnome-terminal`):
+Alternatively, `start.sh` builds the project and automatically starts a server and two clients in separate terminal windows (requires `gnome-terminal`):
 
 ```bash
 ./start.sh
 ```
 
-Per pulire i file generati dalla compilazione:
+To remove build artifacts:
 
 ```bash
 make clean
 ```
 
-## Formato dei file `.quiz`
+## `.quiz` file format
 
-- `quiz/indice.quiz` contiene, sulla prima riga, il numero di temi disponibili, seguito da una riga per ciascun tema con il relativo nome.
-- Ogni tema è definito in un file `N.quiz` (dove `N` è la posizione del tema nell'indice, a partire da 1), con una riga per domanda.
-- In ogni riga, il testo della domanda è separato dalle risposte accettate dal carattere `|`; più risposte valide per la stessa domanda sono separate dal carattere `~`.
+- `quiz/indice.quiz` contains, on the first line, the number of available topics, followed by one line per topic with its name.
+- Each topic is defined in a file `N.quiz` (where `N` is the topic's position in the index, starting from 1), with one line per question.
+- On each line, the question text is separated from the accepted answers by a `|` character; multiple valid answers to the same question are separated by `~`.
 
-Esempio (`quiz/1.quiz`):
+Example (`quiz/1.quiz`):
 
 ```
 Chi ha scritto la "Divina Commedia"?|dante alighieri~dante
 ```
 
-Questo formato permette di aggiungere o modificare temi e domande semplicemente creando/editando file di testo, senza ricompilare il codice.
+This format allows topics and questions to be added or edited simply by creating/editing text files, without recompiling the code.
 
-## Licenza
+## License
 
-Distribuito con licenza [MIT](LICENSE).
+Distributed under the [MIT License](LICENSE).
